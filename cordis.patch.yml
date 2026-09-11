@@ -1,0 +1,10 @@
+# Replace the shipped automation bridge with this one, which also answers
+# `session/load` so a client can rebuild a transcript after its own restart.
+
+- id: acp
+  disabled: true
+
+- insert:
+    - id: acp-replay
+      name: 'dsh-acp-replay'
+      inject: [acpAppStartup]
