@@ -55,6 +55,25 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "acp",
+    "agent-client-protocol",
+    "session-load"
+  ],
+  "homepage": "https://github.com/zheng1/dsh-acp-replay#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zheng1/dsh-acp-replay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zheng1/dsh-acp-replay/issues"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
