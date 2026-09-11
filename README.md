@@ -48,10 +48,13 @@ The bridge replaces the shipped `acp` row in a profile. Two ways:
 
 **Install into an existing profile.** Add the package to the profile and append to its `cordis.patch.yml`:
 
+Published on npm as [`dsh-acp-replay`](https://www.npmjs.com/package/dsh-acp-replay):
+
 ```bash
-dsh plugin --profile acp-replay add dsh-acp-replay   # or copy the package into
-                                                     # $DSH_HOME/profiles/node_modules/
+dsh plugin --profile acp-replay add dsh-acp-replay   # installs it into that profile
 ```
+
+The same package also works installed globally (`npm install -g dsh-acp-replay`) or copied from a checkout (put `lib/` and `package.json` in `$DSH_HOME/profiles/node_modules/dsh-acp-replay/`).
 
 ```yaml
 - id: acp
