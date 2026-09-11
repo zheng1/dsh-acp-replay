@@ -55,6 +55,7 @@ import type {} from '@deepseek-ai/dsh-user-approval'
 import { supportsAcpImagePrompts } from './content.ts'
 import { AcpMcpConfigError } from './mcp.ts'
 import { AcpModelConfigError } from './model-control.ts'
+import { assertReplayHostSupport } from './compat.ts'
 import { replaySessionUpdates } from './replay.ts'
 import { AcpSession } from './session.ts'
 
@@ -102,6 +103,13 @@ export function apply(ctx: Context, config: AcpConfig): void {
   // injected service during apply rather than reading it lazily in a callback.
   const persistence = ctx.sessionPersistence
   const logger = ctx.logger
+  // One check at mount beats a broken bridge that only fails when a client
+  // asks for history, or when the provider has already been advertised.
+  assertReplayHostSupport({
+    persistence,
+    sessionLoadMethod: methods.agent.session.load,
+  })
+  logger.info('dsh-acp-replay: session/load replay enabled')
   const sessionListPageSize = resolveSessionListPageSize(config.sessionListPageSize)
   const sessions = new Map<SessionId, AcpSession>()
   const activating = new Set<SessionId>()

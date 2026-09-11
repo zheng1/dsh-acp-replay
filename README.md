@@ -28,6 +28,20 @@ Two changes over `@deepseek-ai/dsh-acp@0.1.5-rc.1`:
 
 Injected context (the runtime snapshot, skill lists, file-change notices) shares the `user/message` event type but is not something a user said, so it stays off the wire.
 
+## Fail-fast guard
+
+The bridge needs the persistence handle API (`ctx.sessionPersistence.open(id, 'read')`, then `read(0)`) that `0.1.5-rc.1` introduced; `0.1.2-rc.1` read logs with `load`/`inspect` on the service instead. When the mounted harness does not offer what the bridge calls, `src/compat.ts` refuses to mount and prints the missing requirement, the alternative bridge, and this repository:
+
+```
+dsh-acp-replay cannot serve session/load in this harness (harness 0.1.6):
+  - needs ctx.sessionPersistence.open(), but the mounted sessionPersistence service exposes inspect, list, load, stat
+This plugin vendors @deepseek-ai/dsh-acp@0.1.5-rc.1 and needs the persistence handle API it introduced.
+Use the shipped bridge instead ("dsh --profile acp"), or update this plugin for the installed harness.
+https://github.com/zheng1/dsh-acp-replay
+```
+
+Run `node test/selfcheck.mjs` after a harness upgrade to get that answer without a full client.
+
 ## Use it
 
 The bridge replaces the shipped `acp` row in a profile. Two ways:
@@ -75,6 +89,7 @@ Then point the client at `dsh --profile acp-replay` instead of `dsh --profile ac
 ```bash
 npm install --legacy-peer-deps   # the 0.1.5 peer graph has an rc.1/rc.2 skew
 npm run build                    # tsc -> lib/
+npm test                         # guard behaviour (node:test)
 ```
 
 ## Verified
@@ -85,7 +100,16 @@ Against `dsh 0.1.5-rc.1`, a scratch `DSH_HOME`, and a real API key:
 - A session with two prompts runs normally through the bridge (`session/new`, `session/prompt`, `session/close`).
 - A **new process** calling `session/load` for that session id receives `user_message_chunk ×2` and `agent_message_chunk ×2` carrying the original prompts and answers, plus `usage_update ×2`.
 
-`test/replay-check.mjs` runs both phases (`record` then `load <session-id>`).
+`test/replay-check.mjs` runs both phases (`record` then `load <session-id>`); `test/selfcheck.mjs` only performs `initialize` and reports whether `loadSession` is advertised.
+
+**End to end through a client** (Paseo 0.7.2 daemon, `dsh 0.1.5-rc.1`, two DSH providers on one daemon so only the bridge differs). Each agent ran one prompt, then the daemon was restarted — the event that used to erase the visible conversation:
+
+| Provider | Before restart | After restart |
+| --- | --- | --- |
+| `dsh-replay` (this bridge, advertises `loadSession`) | user prompt, assistant answer, reasoning row | **all three rows restored** |
+| `dsh` (shipped bridge, no `loadSession`) | user prompt, assistant answer | `No activity to display.` |
+
+Paseo's ACP adapter takes the `loadSession` branch only when the agent advertises the capability, primes its timeline from `streamHistory()`, and needed no change for this to work.
 
 ## Not verified / known limits
 
