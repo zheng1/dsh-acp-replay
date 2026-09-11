@@ -4,6 +4,8 @@ A community ACP bridge for [DeepSeek Harness](https://github.com/deepseek-ai/dee
 
 **Status: prototype.** It works end to end on `dsh 0.1.5-rc.1`, but it is a vendored fork of `@deepseek-ai/dsh-acp` and needs a rebase whenever that package changes.
 
+Published on npm as `dsh-acp-replay`. Its version is independent of the harness version it targets, which `peerDependencies` states. (`0.1.5-rc.1` was published with an incomplete file list, so it fails to load; it is deprecated. Use `0.1.0` or newer.)
+
 ## Why this exists
 
 `dsh-acp` is an automation-only bridge: its `initialize` advertises `sessionCapabilities: { close, list, resume }` and no `loadSession`, and `session/resume` restores a session *without replaying its updates*. ACP defines `session/load` as the call where the agent "streams the entire conversation history back to the client via notifications", and clients that treat the agent as the durable transcript authority — Paseo, for one — call exactly that method to rebuild a timeline after restarting.
