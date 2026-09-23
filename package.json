@@ -1,6 +1,6 @@
 {
   "name": "dsh-acp-replay",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Community ACP bridge for DeepSeek Harness that supports session/load by replaying a persisted session's transcript",
   "type": "module",
   "main": "lib/index.js",
@@ -14,7 +14,8 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "dsh-acp-replay-selfcheck": "./test/selfcheck.mjs"
+    "dsh-acp-replay-selfcheck": "./test/selfcheck.mjs",
+    "dsh-acp-replay-pincheck": "./test/pin-check.mjs"
   },
   "files": [
     "lib/**/*.js",

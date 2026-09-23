@@ -4,7 +4,7 @@ A community ACP bridge for [DeepSeek Harness](https://github.com/deepseek-ai/dee
 
 **Status: prototype.** It works end to end on `dsh 0.1.5-rc.1` through `0.1.5-rc.3`, but it is a vendored fork of `@deepseek-ai/dsh-acp` and needs a rebase whenever that package changes. `0.1.6-alpha.1` changed the persistence API and, per a field report on 2026-09-23, answers no ACP request with either profile; the guard below is what reports why.
 
-Published on npm as `dsh-acp-replay`. Its version is independent of the harness version it targets, which `peerDependencies` states. `0.1.1` ships `test/*.mjs`, so the self-check below runs from an installed copy. (`0.1.5-rc.1` was published with an incomplete file list, so it fails to load; it is deprecated.)
+Published on npm as `dsh-acp-replay`. Its version is independent of the harness version it targets, which `peerDependencies` states. `0.1.2` ships `test/*.mjs` and exposes the self-check and the pin check as bins, so both run from an installed copy. (`0.1.5-rc.1` was published with an incomplete file list, so it fails to load; it is deprecated.)
 
 ## Why this exists
 
@@ -42,7 +42,30 @@ Use the shipped bridge instead ("dsh --profile acp"), or update this plugin for 
 https://github.com/zheng1/dsh-acp-replay
 ```
 
-Run the self-check after a harness upgrade to get that answer without a full client. From a checkout that is `node test/selfcheck.mjs`; from an installed copy it is `npx dsh-acp-replay-selfcheck`, and a global install puts the same command on `PATH`.
+Run the self-check after a harness upgrade to get that answer without a full client. From a checkout that is `node test/selfcheck.mjs`; from an installed copy it is `npx dsh-acp-replay-selfcheck`, and a global install puts the same command on `PATH`. `dsh-acp-replay-pincheck` runs both profiles and prints which of the upgrade outcomes below applies.
+
+The self-check reports "no ACP initialize response" when the harness never answers, which is also what a failed mount looks like. `dsh` rewrites the profile's `cordis.yml` while preparing it, so a sandbox that denies writes to `DSH_HOME` exits on EPERM before answering; the check says so when it sees `EPERM` or `prepareProfile` in the captured stderr, and prints that stderr otherwise.
+
+## Upgrading the harness pin
+
+The pin is the harness version whose `dsh-acp` this fork was rebased against. Check the candidate before moving it:
+
+```
+$ DSH_BIN=~/.local/bin/dsh npx dsh-acp-replay-pincheck
+harness: /Users/you/.local/bin/dsh (0.1.5-rc.3)
+shipped profile "acp"             does not advertise loadSession
+bridge profile "acp-replay"       advertises loadSession (image: yes)
+
+PIN: bridge — upgrade the harness and move the pin; this bridge answers session/load on it
+```
+
+| Outcome | Meaning | What to do |
+| --- | --- | --- |
+| `upstream` | The shipped profile advertises `loadSession` too | Drop the bridge and unpin; point the client back at `dsh --profile acp` |
+| `bridge` | Only the bridged profile advertises it | Upgrade the harness, then move the pin |
+| `refuses` | Neither profile advertises it | Stay on the pinned harness |
+
+`test/replay-check.mjs` is the other half of that check: it records a session and replays it in a new process, so use a session with real content. A 376-byte session legitimately replays nothing, and zero counts then look like a broken bridge.
 
 ## Use it
 
@@ -149,6 +172,8 @@ OK: profile "acp-replay" advertises loadSession (image: yes)
 $ DSH_PROFILE=acp dsh-acp-replay-selfcheck
 FAIL: the bridge answered but does not advertise loadSession        # exit 1
 ```
+
+**`0.1.1` changed no served code.** A downstream field check diffed the published `0.1.1` tarball against the installed `0.1.0`: `lib/` and `cordis.patch.yml` byte-identical, `package.json` differing only in the version, the `bin` entry, and `files`. After the upgrade the same 1.2 MB session replayed to identical counts (`user_message_chunk` 17, `agent_message_chunk` 90, `agent_thought_chunk` 103, `tool_call` 114, `tool_call_update` 114, `usage_update` 113) and the provider diagnostic stayed Ready.
 
 ## Not verified / known limits
 
