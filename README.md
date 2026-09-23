@@ -2,9 +2,9 @@
 
 A community ACP bridge for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that answers `session/load`, so a client can rebuild a session transcript after its own restart.
 
-**Status: prototype.** It works end to end on `dsh 0.1.5-rc.1`, but it is a vendored fork of `@deepseek-ai/dsh-acp` and needs a rebase whenever that package changes.
+**Status: prototype.** It works end to end on `dsh 0.1.5-rc.1` through `0.1.5-rc.3`, but it is a vendored fork of `@deepseek-ai/dsh-acp` and needs a rebase whenever that package changes. `0.1.6-alpha.1` changed the persistence API and, per a field report on 2026-09-23, answers no ACP request with either profile; the guard below is what reports why.
 
-Published on npm as `dsh-acp-replay`. Its version is independent of the harness version it targets, which `peerDependencies` states. (`0.1.5-rc.1` was published with an incomplete file list, so it fails to load; it is deprecated. Use `0.1.0` or newer.)
+Published on npm as `dsh-acp-replay`. Its version is independent of the harness version it targets, which `peerDependencies` states. `0.1.1` ships `test/*.mjs`, so the self-check below runs from an installed copy. (`0.1.5-rc.1` was published with an incomplete file list, so it fails to load; it is deprecated.)
 
 ## Why this exists
 
@@ -42,7 +42,7 @@ Use the shipped bridge instead ("dsh --profile acp"), or update this plugin for 
 https://github.com/zheng1/dsh-acp-replay
 ```
 
-Run `node test/selfcheck.mjs` after a harness upgrade to get that answer without a full client.
+Run the self-check after a harness upgrade to get that answer without a full client. From a checkout that is `node test/selfcheck.mjs`; from an installed copy it is `npx dsh-acp-replay-selfcheck`, and a global install puts the same command on `PATH`.
 
 ## Use it
 
@@ -97,6 +97,21 @@ npm run build                    # tsc -> lib/
 npm test                         # guard behaviour (node:test)
 ```
 
+### pnpm
+
+Reported from a field install with pnpm 12 (this repository is developed with pnpm 10, where a plain install is enough): pnpm 12 fails on `ERR_PNPM_IGNORED_BUILDS` even when the dependency tree resolved, and `--ignore-scripts` does not bypass it. Declaring the builds is what works:
+
+```yaml
+allowBuilds:
+  "@deepseek-ai/dsh-subprocess-local": true
+  "@google/genai": true
+  koffi: true
+  node-pty: true
+  protobufjs: true
+```
+
+`@deepseek-ai/dsh-subprocess-local` is the one that matters: its postinstall restores the executable bit on node-pty's `spawn-helper`. A packaged prebuild already ships that file `0755`, so skipping the script is invisible until an install lacks the bit and pty support disappears without a message.
+
 ## Verified
 
 Against `dsh 0.1.5-rc.1`, a scratch `DSH_HOME`, and a real API key:
@@ -116,9 +131,29 @@ Against `dsh 0.1.5-rc.1`, a scratch `DSH_HOME`, and a real API key:
 
 Paseo's ACP adapter takes the `loadSession` branch only when the agent advertises the capability, primes its timeline from `streamHistory()`, and needed no change for this to work.
 
+**Independent confirmation** (`dsh 0.1.5-rc.2`, Paseo 0.9.1 daemon, macOS, own `DSH_HOME`):
+
+| Probe | Shipped `acp` | `dsh-acp-replay` |
+| --- | --- | --- |
+| `initialize.agentCapabilities.loadSession` | absent (`sessionCapabilities: { close, list, resume }`) | `true` |
+| `session/load` on a persisted session | no replay | `user_message_chunk` ×1, `agent_message_chunk` ×17, `tool_call` ×24 |
+
+That client-side branch was read off the shipped Paseo 0.9.1 build: its ACP client tests `agentCapabilities.loadSession` first and only falls back to `unstable_resumeSession`, and `dsh` reaches the client through the generic ACP path, so the shipped bridge takes the second branch. Switching the provider to this bridge rendered the conversations that had reopened blank, and `paseo provider diagnostic dsh` reported Ready.
+
+**The self-check from an installed copy** (`0.1.1`, an `npm install` of the packed tarball, `dsh 0.1.5-rc.1`, scratch `DSH_HOME`) — the check that could not be run before `0.1.1`, because `test/` was not in the published file list:
+
+```
+$ DSH_PROFILE=acp-replay dsh-acp-replay-selfcheck
+OK: profile "acp-replay" advertises loadSession (image: yes)
+
+$ DSH_PROFILE=acp dsh-acp-replay-selfcheck
+FAIL: the bridge answered but does not advertise loadSession        # exit 1
+```
+
 ## Not verified / known limits
 
 - Tool-call replay is mapped but not exercised by the test above.
+- The `0.1.6-alpha.1` no-response finding above is a field report; this repository has not re-probed an alpha harness. npm `latest` is `0.1.5-rc.2` and `next` is `0.1.5-rc.3`, both of which work.
 - An older host (`dsh 0.1.2-rc.1`) exposes a different persistence API (`load`/`inspect` instead of `open`/`read`), so this fork targets `0.1.5-rc.1` and newer only.
 - Replayed history is delivered before `session/load` returns, one notification at a time; a very long session makes that call proportionally long.
 - The profile's own help text still reads `--profile acp` (it comes from the bundled `dsh-acp-app` command provider, not from this package).

@@ -1,6 +1,6 @@
 {
   "name": "dsh-acp-replay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Community ACP bridge for DeepSeek Harness that supports session/load by replaying a persisted session's transcript",
   "type": "module",
   "main": "lib/index.js",
@@ -13,10 +13,14 @@
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
+  "bin": {
+    "dsh-acp-replay-selfcheck": "./test/selfcheck.mjs"
+  },
   "files": [
     "lib/**/*.js",
     "lib/types/**/*.d.ts",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "test/*.mjs"
   ],
   "license": "MIT",
   "dsh": {
