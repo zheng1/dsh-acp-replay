@@ -2,7 +2,7 @@
 
 A community ACP bridge for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that answers `session/load`, so a client can rebuild a session transcript after its own restart.
 
-**Status: prototype.** It works end to end on `dsh 0.1.5-rc.1` through `0.1.5-rc.3`, but it is a vendored fork of `@deepseek-ai/dsh-acp` and needs a rebase whenever that package changes. `0.1.6-alpha.1` changed the persistence API and, per a field report on 2026-09-23, answers no ACP request with either profile; the guard below is what reports why.
+**Status: prototype.** It works end to end on `dsh 0.1.5-rc.1`, `0.1.5-rc.3`, and `0.1.7-rc.2`, but it is a vendored fork of `@deepseek-ai/dsh-acp` and needs a rebase whenever that package changes. No harness version probed here advertises `loadSession` itself, so the bridge is still the only path to a rebuilt transcript; a field report of `0.1.6-alpha.1` answering nothing did not reproduce on the `0.1.7` release candidate.
 
 Published on npm as `dsh-acp-replay`. Its version is independent of the harness version it targets, which `peerDependencies` states. `0.1.2` ships `test/*.mjs` and exposes the self-check and the pin check as bins, so both run from an installed copy. (`0.1.5-rc.1` was published with an incomplete file list, so it fails to load; it is deprecated.)
 
@@ -69,19 +69,36 @@ PIN: bridge — upgrade the harness and move the pin; this bridge answers sessio
 
 ## Use it
 
-The bridge replaces the shipped `acp` row in a profile. Two ways:
+The bridge replaces the shipped `acp` row in a profile. Either way you install it, the bridge row needs a `provider` and a `model`.
 
-**Install into an existing profile.** Add the package to the profile and append to its `cordis.patch.yml`:
-
-Published on npm as [`dsh-acp-replay`](https://www.npmjs.com/package/dsh-acp-replay):
+**From npm.** The package declares `dsh.bundle.patch`, so installing it composes the rows: the shipped `acp` row is disabled and the bridge is inserted.
 
 ```bash
-dsh plugin --profile acp-replay add dsh-acp-replay   # installs it into that profile
+dsh plugin --profile acp-replay add dsh-acp-replay
 ```
 
-The same package also works installed globally (`npm install -g dsh-acp-replay`) or copied from a checkout (put `lib/` and `package.json` in `$DSH_HOME/profiles/node_modules/dsh-acp-replay/`).
+Then set the model on the inserted row, because the bundle carries none (the model id changes between harness releases) — that is an id-targeted override in the profile's own patch layer, not a second `insert`:
 
 ```yaml
+# $DSH_HOME/profiles/acp-replay/cordis.patch.yml
+- id: acp-replay
+  config:
+    provider: deepseek-official
+    model: deepseek-v4-flash
+```
+
+Read the values off the shipped row rather than guessing, since the id differs per release (`deepseek-flash` on 0.1.5, `deepseek-v4-flash` on 0.1.7):
+
+```bash
+DSH_HOME=~/.dsh dsh --profile acp --dump-config | sed -n '/- id: acp$/,/^$/p'
+```
+
+Skip that step and prompts answer with `Internal error: prompt variable "{{model}}" has no value for this assembly`. Add a second `insert` entry for `acp-replay` while the bundle is active and the mount fails with `duplicate loader entry id: acp-replay`.
+
+**From a checkout (no bundle).** Install globally (`npm install -g dsh-acp-replay`) or copy `lib/`, `package.json`, and `cordis.patch.yml` into `$DSH_HOME/profiles/node_modules/dsh-acp-replay/`, then spell out both rows:
+
+```yaml
+# $DSH_HOME/profiles/acp-replay/cordis.patch.yml
 - id: acp
   disabled: true
 
@@ -91,7 +108,7 @@ The same package also works installed globally (`npm install -g dsh-acp-replay`)
       inject: [acpAppStartup]
       config:
         provider: deepseek-official
-        model: deepseek-flash
+        model: deepseek-v4-flash
 ```
 
 Then point the client at `dsh --profile acp-replay` instead of `dsh --profile acp`. In Paseo that is the provider's `command`:
@@ -110,7 +127,7 @@ Then point the client at `dsh --profile acp-replay` instead of `dsh --profile ac
 }
 ```
 
-**Or use it as a bundle.** The package declares `dsh.bundle.patch`, so adding `dsh-acp-replay` to a profile's `dsh.profile.bundles` composes the same rows.
+The rows the bundle composes are the same two above, so a profile can point at either path without changing the client config.
 
 ## Build
 
@@ -145,6 +162,16 @@ Against `dsh 0.1.5-rc.1`, a scratch `DSH_HOME`, and a real API key:
 
 `test/replay-check.mjs` runs both phases (`record` then `load <session-id>`); `test/selfcheck.mjs` only performs `initialize` and reports whether `loadSession` is advertised.
 
+**Harness versions.** Each candidate installed with `dsh plugin --profile acp-replay add dsh-acp-replay` into a profile created by that same harness:
+
+| Harness | Shipped `acp` profile | Bridged profile | Note |
+| --- | --- | --- | --- |
+| `0.1.5-rc.1` | answers, no `loadSession` | `loadSession: true` | original target; replay verified |
+| `0.1.5-rc.3` (npm `latest`) | answers, no `loadSession` | `loadSession: true` | guard passes, so the pin can move |
+| `0.1.7-rc.2` (npm `next`) | answers, no `loadSession` | `loadSession: true` | record + replay verified |
+
+The shipped profile answering every time is the part a bare `initialize` probe can misread: no harness version probed here advertises `loadSession` itself, so the bridge stays necessary.
+
 **End to end through a client** (Paseo 0.7.2 daemon, `dsh 0.1.5-rc.1`, two DSH providers on one daemon so only the bridge differs). Each agent ran one prompt, then the daemon was restarted — the event that used to erase the visible conversation:
 
 | Provider | Before restart | After restart |
@@ -178,7 +205,7 @@ FAIL: the bridge answered but does not advertise loadSession        # exit 1
 ## Not verified / known limits
 
 - Tool-call replay is mapped but not exercised by the test above.
-- The `0.1.6-alpha.1` no-response finding above is a field report; this repository has not re-probed an alpha harness. npm `latest` is `0.1.5-rc.2` and `next` is `0.1.5-rc.3`, both of which work.
+- The `0.1.6-alpha.1` no-response finding was a field report and does not generalize: `0.1.5-rc.3` and `0.1.7-rc.2` both answer and both mount this bridge. No alpha harness has been probed here.
 - An older host (`dsh 0.1.2-rc.1`) exposes a different persistence API (`load`/`inspect` instead of `open`/`read`), so this fork targets `0.1.5-rc.1` and newer only.
 - Replayed history is delivered before `session/load` returns, one notification at a time; a very long session makes that call proportionally long.
 - The profile's own help text still reads `--profile acp` (it comes from the bundled `dsh-acp-app` command provider, not from this package).

@@ -1,5 +1,20 @@
 # Replace the shipped automation bridge with this one, which also answers
 # `session/load` so a client can rebuild a transcript after its own restart.
+#
+# This row carries no `provider`/`model`: the shipped `acp` row sets them, and its
+# model id changes between releases (`deepseek-flash` on 0.1.5, `deepseek-v4-flash`
+# on 0.1.7). Copy that config into the profile's own patch layer, as an id-targeted
+# override — a second `insert` for this id fails the mount:
+#
+#   DSH_HOME=~/.dsh dsh --profile acp --dump-config | sed -n '/- id: acp$/,/^$/p'
+#
+#   # $DSH_HOME/profiles/<profile>/cordis.patch.yml
+#   - id: acp-replay
+#     config:
+#       provider: deepseek-official
+#       model: deepseek-v4-flash
+#
+# Without it, prompts fail with `prompt variable "{{model}}" has no value`.
 
 - id: acp
   disabled: true

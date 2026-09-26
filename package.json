@@ -1,6 +1,6 @@
 {
   "name": "dsh-acp-replay",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Community ACP bridge for DeepSeek Harness that supports session/load by replaying a persisted session's transcript",
   "type": "module",
   "main": "lib/index.js",
