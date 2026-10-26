@@ -1,20 +1,16 @@
 # Replace the shipped automation bridge with this one, which also answers
 # `session/load` so a client can rebuild a transcript after its own restart.
 #
-# This row carries no `provider`/`model`: the shipped `acp` row sets them, and its
-# model id changes between releases (`deepseek-flash` on 0.1.5, `deepseek-v4-flash`
-# on 0.1.7). Copy that config into the profile's own patch layer, as an id-targeted
-# override — a second `insert` for this id fails the mount:
+# Pin `0.2.0` vendors `@deepseek-ai/dsh-acp@0.2.1-alpha.5`, whose shipped `acp`
+# row uses `deepseek-official` / `deepseek-v4-flash`. Carry those defaults on
+# the inserted row so ACP `session/new` exposes a model catalog to clients such
+# as Paseo without a separate profile patch. Override in the profile's own
+# `cordis.patch.yml` when you want a different route:
 #
-#   DSH_HOME=~/.dsh dsh --profile acp --dump-config | sed -n '/- id: acp$/,/^$/p'
-#
-#   # $DSH_HOME/profiles/<profile>/cordis.patch.yml
 #   - id: acp-replay
 #     config:
 #       provider: deepseek-official
-#       model: deepseek-v4-flash
-#
-# Without it, prompts fail with `prompt variable "{{model}}" has no value`.
+#       model: deepseek-v4-pro
 
 - id: acp
   disabled: true
@@ -23,3 +19,6 @@
     - id: acp-replay
       name: 'dsh-acp-replay'
       inject: [acpAppStartup]
+      config:
+        provider: deepseek-official
+        model: deepseek-v4-flash

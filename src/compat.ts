@@ -2,8 +2,8 @@
  * Fail loudly when the harness this profile booted into cannot serve
  * `session/load`.
  *
- * This bridge vendors `@deepseek-ai/dsh-acp@0.1.5-rc.1` and reads a persisted
- * log through the persistence handle API that release introduced. A harness
+ * This bridge vendors `@deepseek-ai/dsh-acp@0.2.1-alpha.5` and reads a persisted
+ * log through the persistence handle API that `0.1.5-rc.1` introduced. A harness
  * upgrade can move that API again (`0.1.2-rc.1` exposed `load`/`inspect`
  * directly on the service), and a silent mismatch would surface much later as
  * "the provider will not start" or as an empty transcript. Checking once at
@@ -81,7 +81,7 @@ export function assertReplayHostSupport(support: ReplayHostSupport): void {
   const lines = [
     `dsh-acp-replay cannot serve session/load in this harness${harness}:`,
     ...problems.map((problem) => `  - needs ${problem.requirement}, but ${problem.detail}`),
-    `This plugin vendors @deepseek-ai/dsh-acp@0.1.5-rc.1 and needs the persistence handle API it introduced.`,
+    `This plugin vendors @deepseek-ai/dsh-acp@0.2.1-alpha.5 and needs the persistence handle API introduced in 0.1.5-rc.1.`,
     `Use the shipped bridge instead ("dsh --profile acp"), or update this plugin for the installed harness.`,
     HOMEPAGE,
   ]

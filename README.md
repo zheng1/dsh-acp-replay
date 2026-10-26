@@ -2,7 +2,7 @@
 
 A community ACP bridge for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that answers `session/load`, so a client can rebuild a session transcript after its own restart.
 
-**Status: prototype.** It works end to end on `dsh 0.1.5-rc.1`, `0.1.5-rc.3`, and `0.1.7-rc.2`, but it is a vendored fork of `@deepseek-ai/dsh-acp` and needs a rebase whenever that package changes. No harness version probed here advertises `loadSession` itself, so the bridge is still the only path to a rebuilt transcript; a field report of `0.1.6-alpha.1` answering nothing did not reproduce on the `0.1.7` release candidate.
+**Status: prototype.** It works end to end on `dsh 0.1.5-rc.1`, `0.1.5-rc.3`, and `0.1.7-rc.2`, and `0.2.0` rebases the vendored bridge onto `@deepseek-ai/dsh-acp@0.2.1-alpha.5` for `dsh 0.2.1-alpha.5`. It needs another rebase whenever that package changes. No harness version probed here advertises `loadSession` itself, so the bridge is still the only path to a rebuilt transcript; a field report of `0.1.6-alpha.1` answering nothing did not reproduce on the `0.1.7` release candidate.
 
 Published on npm as `dsh-acp-replay`. Its version is independent of the harness version it targets, which `peerDependencies` states. `0.1.2` ships `test/*.mjs` and exposes the self-check and the pin check as bins, so both run from an installed copy. (`0.1.5-rc.1` was published with an incomplete file list, so it fails to load; it is deprecated.)
 
@@ -14,7 +14,7 @@ Without it, that model of client shows an empty conversation next to an agent th
 
 ## What it adds
 
-Two changes over `@deepseek-ai/dsh-acp@0.1.5-rc.1`:
+Two changes over `@deepseek-ai/dsh-acp@0.2.1-alpha.5` (vendored from that release):
 
 - `initialize` advertises `loadSession: true`.
 - `session/load` is implemented: it opens the stored session with a read-only persistence handle (`ctx.sessionPersistence.open(id, 'read')`), resumes the session exactly as `session/resume` does, then replays the snapshot through the existing update mapping in `src/updates.ts` before returning.
@@ -73,7 +73,10 @@ The bridge replaces the shipped `acp` row in a profile. Either way you install i
 
 **From npm.** The package declares `dsh.bundle.patch`, so installing it composes the rows: the shipped `acp` row is disabled and the bridge is inserted.
 
+`dsh plugin` alone initializes a **base-backed** profile. This bridge needs the shipped ACP app layer (`acpAppStartup`), so create the profile from the `acp` template first:
+
 ```bash
+dsh --profile acp-replay --from-default-profile acp
 dsh plugin --profile acp-replay add dsh-acp-replay
 ```
 
@@ -205,11 +208,11 @@ FAIL: the bridge answered but does not advertise loadSession        # exit 1
 ## Not verified / known limits
 
 - Tool-call replay is mapped but not exercised by the test above.
-- The `0.1.6-alpha.1` no-response finding was a field report and does not generalize: `0.1.5-rc.3` and `0.1.7-rc.2` both answer and both mount this bridge. No alpha harness has been probed here.
+- The `0.1.6-alpha.1` no-response finding was a field report and does not generalize: `0.1.5-rc.3` and `0.1.7-rc.2` both answer and both mount this bridge. `0.2.0` additionally mounts and advertises `loadSession` on `dsh 0.2.1-alpha.5` (selfcheck only; no paid-inference replay round was recorded for that pin).
 - An older host (`dsh 0.1.2-rc.1`) exposes a different persistence API (`load`/`inspect` instead of `open`/`read`), so this fork targets `0.1.5-rc.1` and newer only.
 - Replayed history is delivered before `session/load` returns, one notification at a time; a very long session makes that call proportionally long.
 - The profile's own help text still reads `--profile acp` (it comes from the bundled `dsh-acp-app` command provider, not from this package).
 
 ## License
 
-MIT, matching the upstream package it vendors. `src/*.ts` except `src/replay.ts` are copied from [`@deepseek-ai/dsh-acp`](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/acp/acp) at tag `dsh-v0.1.5-rc.1`; the additions are the `loadSession` capability, the `loadSession` handler in `src/index.ts`, and `src/replay.ts`.
+MIT, matching the upstream package it vendors. `src/*.ts` except `src/compat.ts` and `src/replay.ts` are copied from [`@deepseek-ai/dsh-acp`](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/acp/acp) at tag `dsh-v0.2.1-alpha.5`; the additions are the `loadSession` capability, the `loadSession` handler in `src/index.ts`, `src/compat.ts`, and `src/replay.ts`.
